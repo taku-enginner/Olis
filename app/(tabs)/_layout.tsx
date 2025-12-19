@@ -35,6 +35,10 @@ export default function TabLayout() {
         name="profile"
         options={{ title: 'Profile'}}
       />
+      <Tabs.Screen
+        name="input"
+        options={{ title: 'Create'}}
+      />
     </Tabs>
   );
 }
