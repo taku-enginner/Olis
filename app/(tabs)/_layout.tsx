@@ -17,6 +17,10 @@ export default function TabLayout() {
         tabBarButton: HapticTab,
       }}>
       <Tabs.Screen
+        name="input"
+        options={{ title: 'Create'}}
+      />
+      <Tabs.Screen
         name="index"
         options={{
           title: 'Home',
@@ -26,10 +30,6 @@ export default function TabLayout() {
       <Tabs.Screen
         name="profile"
         options={{ title: 'Profile'}}
-      />
-      <Tabs.Screen
-        name="input"
-        options={{ title: 'Create'}}
       />
     </Tabs>
   );
