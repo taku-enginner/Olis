@@ -1,14 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
+import { requestTrackingPermissionsAsync } from 'expo-tracking-transparency';
 import * as WebBrowser from 'expo-web-browser';
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import mobileAds from 'react-native-google-mobile-ads';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as z from 'zod';
-
 
 
 WebBrowser.maybeCompleteAuthSession();
@@ -250,16 +250,30 @@ export default function App(){
             title: '',
         }
     });
+    const initAd = useCallback(async () => {
+        try {
+          // ここに追加
+          const { status } = await requestTrackingPermissionsAsync();
+            if (status === 'granted') {
+              console.log('Yay! I have user permission to track data');
+           }
+
+          await mobileAds().initialize();
+        } catch (err) {
+          console.warn('initAd', err);
+        }
+      }, []);
+
     // 初回データの読み込み
     useEffect(() => {
-        loadHistory();
-        loadRepoInfo();
-        mobileAds()
-        .initialize()
-        .then(adapterStatuses => {
-          // 初期化完了
-        });
-    }, []);
+        const initializeApp = async () => {
+            await loadHistory();
+            await loadRepoInfo();
+            await initAd();
+        };
+        
+        initializeApp();
+    }, [initAd]);
 
     const loadHistory = async () => {
         const saved = await AsyncStorage.getItem('@history_list');
