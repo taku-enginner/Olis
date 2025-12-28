@@ -97,7 +97,7 @@ export default function App(){
           } else {
             // --- 本番環境：Firebase Functions 経由 ---
             console.log("Production mode: Using Firebase Functions");
-            const functions = getFunctions();
+            const functions = getFunctions(undefined, 'asia-northeast1');
             const getGithubToken = httpsCallable(functions, 'getGithubToken');
 
             try {
