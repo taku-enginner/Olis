@@ -3,13 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import * as TrackingTransparency from 'expo-tracking-transparency';
 import * as WebBrowser from 'expo-web-browser';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as z from 'zod';
-
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -86,12 +86,38 @@ export default function App(){
 
     // 認証レスポンス監視
     useEffect(() => {
+      const handleAuthentication = async () => {
         if (response?.type === 'success' && !accessToken && 'params' in response) {
-            const { code } = response.params;
-            exchangeCodeForToken(code);
-        }
-    }, [response, accessToken]);
+          const { code } = response.params;
 
+          if (__DEV__) {
+            // --- 開発環境：従来の直接取得方式 ---
+            console.log("Dev mode: Exchanging code directly");
+            exchangeCodeForToken(code); 
+          } else {
+            // --- 本番環境：Firebase Functions 経由 ---
+            console.log("Production mode: Using Firebase Functions");
+            const functions = getFunctions();
+            const getGithubToken = httpsCallable(functions, 'getGithubToken');
+
+            try {
+              const result = await getGithubToken({ code });
+              const data = result.data as { access_token: string };
+              
+              if (data.access_token) {
+                // Firebaseから受け取ったトークンをセットする処理をここに記述
+                // 例: setAccessToken(data.access_token);
+                console.log("Token obtained via Firebase");
+              }
+            } catch (error) {
+              console.error("Firebase Call Error:", error);
+            }
+          }
+        }
+      };
+
+      handleAuthentication();
+    }, [response, accessToken]);
 
     // トークン交換
     const exchangeCodeForToken = async (code: string) => {
