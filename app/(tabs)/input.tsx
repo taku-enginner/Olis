@@ -241,21 +241,62 @@ export default function App(){
         }
     
         setLoading(true);
+        const failedItems: string[] = [];
+        let successCount = 0;
+        let failCount = 0;
     
         try {
-            // 全ての項目を順番に送信（Promise.allで並列実行も可能ですが、安全に一つずつ）
+            // 全ての項目を順番に送信して結果を追跡
             for (const title of history) {
-                await createGitHubIssue(title);
+                try {
+                    // GitHub Issue作成の実際の処理
+                    const res = await fetch(
+                        `https://api.github.com/repos/${repoOwner}/${repoName}/issues`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                Authorization: `Bearer ${accessToken}`,
+                                Accept: 'application/vnd.github+json',
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ title: title, body: 'Appから送信' }),
+                        }
+                    );
+
+                    if (res.ok) {
+                        // 成功
+                        successCount++;
+                    } else {
+                        // HTTPエラー - 失敗したアイテムを保存
+                        failedItems.push(title);
+                        failCount++;
+                    }
+                } catch (error) {
+                    // ネットワークエラーなど - 失敗したアイテムを保存
+                    failedItems.push(title);
+                    failCount++;
+                }
             }
-    
-            Alert.alert("送信完了", `${history.length}件のIssueを作成しました`);
-    
-            // 送信が終わったらリストを空にする（任意）
-            setHistory([]);
-            await AsyncStorage.removeItem('@history_list');
+
+            // 失敗したアイテムのみを下書きリストに残す
+            setHistory(failedItems);
+            if (failedItems.length > 0) {
+                await AsyncStorage.setItem('@history_list', JSON.stringify(failedItems));
+            } else {
+                await AsyncStorage.removeItem('@history_list');
+            }
+
+            // 結果を表示
+            if (failCount === 0) {
+                Alert.alert("送信完了", `${successCount}件のIssueを作成しました`);
+            } else if (successCount === 0) {
+                Alert.alert("送信失敗", `全${failCount}件の送信に失敗しました\n失敗した下書きはリストに残っています`);
+            } else {
+                Alert.alert("送信完了", `成功: ${successCount}件\n失敗: ${failCount}件\n\n失敗した下書きはリストに残っています`);
+            }
             
         } catch (e) {
-            Alert.alert("エラー", "一部または全ての送信に失敗しました");
+            Alert.alert("エラー", "処理中にエラーが発生しました");
         } finally {
             setLoading(false);
         }
