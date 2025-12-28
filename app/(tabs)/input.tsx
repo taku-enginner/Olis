@@ -1,13 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
+import * as WebBrowser from 'expo-web-browser';
 import React, { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import mobileAds from 'react-native-google-mobile-ads';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as z from 'zod';
 
-import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
-import * as WebBrowser from 'expo-web-browser';
+
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -252,6 +254,11 @@ export default function App(){
     useEffect(() => {
         loadHistory();
         loadRepoInfo();
+        mobileAds()
+        .initialize()
+        .then(adapterStatuses => {
+          // 初期化完了
+        });
     }, []);
 
     const loadHistory = async () => {

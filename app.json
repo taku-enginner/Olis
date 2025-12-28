@@ -48,7 +48,11 @@
         }
       ],
       "expo-web-browser"
-    ],
+    ],    
+    "react-native-google-mobile-ads": {
+      "android_app_id": "ca-app-pub-6214815327107771~8358056419",
+      "ios_app_id": "ca-app-pub-6214815327107771/3336845786"
+    },
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
@@ -67,5 +71,6 @@
     "updates": {
       "url": "https://u.expo.dev/af60afa3-cddc-400d-ac46-0de465205d00"
     }
+
   }
 }
