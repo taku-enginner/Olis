@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import * as TrackingTransparency from 'expo-tracking-transparency';
 import * as WebBrowser from 'expo-web-browser';
+import { getApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -86,6 +87,8 @@ export default function App(){
 
     // 認証レスポンス監視
     useEffect(() => {
+      const app = getApp();
+      Alert.alert("Firebase App projectid: ", app.options.projectId);
       const handleAuthentication = async () => {
         if (response?.type === 'success' && !accessToken && 'params' in response) {
           const { code } = response.params;
@@ -99,6 +102,12 @@ export default function App(){
             console.log("Production mode: Using Firebase Functions");
             const functions = getFunctions(undefined, 'asia-northeast1');
             const getGithubToken = httpsCallable(functions, 'getGithubToken');
+            const expectedUrl = `https://asia-northeast1-${functions.app.options.projectId}.cloudfunctions.net/getGithubToken`;
+            Alert.alert("Debug Info", 
+              `Target URL: ${expectedUrl}\n` +
+              `Project ID: ${functions.app.options.projectId}\n` +
+              `Region: ${functions.region}`
+            );
 
             try {
               const result = await getGithubToken({ code });
