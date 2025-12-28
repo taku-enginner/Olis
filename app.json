@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "OffLimitedIssue",
-    "slug": "OffLimitedIssue",
+    "name": "Olis",
+    "slug": "Olis",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "exp+offlimitedissue",
+    "scheme": "exp+olis",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
