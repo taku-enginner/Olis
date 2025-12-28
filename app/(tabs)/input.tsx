@@ -49,6 +49,12 @@ export default function App(){
     const [modalVisible, setModalVisible] = useState(false);
     const [repoOwner, setRepoOwner]       = useState('');
     const [repoName, setRepoName]         = useState('');
+    const [userName, setUserName]         = useState('');
+    const [repositories, setRepositories] = useState<Array<{name: string; owner: string; usage?: number}>>([]);
+    const [loadingRepos, setLoadingRepos] = useState(false);
+    const [filteredRepos, setFilteredRepos] = useState<Array<{name: string; owner: string; usage?: number}>>([]);
+    const [showRepoSuggestions, setShowRepoSuggestions] = useState(false);
+    const [repoUsageMap, setRepoUsageMap] = useState<Record<string, number>>({});
 
     // 開発環境と本番環境でリダイレクトURIを切り替え
     // 本番環境では、GitHub OAuthアプリの設定で登録されているリダイレクトURIと完全一致させる必要がある
@@ -96,11 +102,109 @@ export default function App(){
             const data = await res.json();
             if (data.access_token) {
                 setAccessToken(data.access_token);
+                // トークンを取得したら、ユーザー情報を取得してリポジトリ一覧を読み込む
+                await fetchUserAndRepositories(data.access_token);
                 Alert.alert("認証成功", "GitHub連携が完了しました");
             }
         } catch (e) {
             Alert.alert("エラー", "認証に失敗しました");
         }
+    };
+
+    // GitHubユーザー情報とリポジトリ一覧を取得
+    const fetchUserAndRepositories = async (token: string) => {
+        try {
+            // ユーザー情報を取得
+            const userRes = await fetch('https://api.github.com/user', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/vnd.github+json',
+                },
+            });
+            const userData = await userRes.json();
+            if (userData.login) {
+                setUserName(userData.login);
+                setRepoOwner(userData.login);
+                setValue('owner', userData.login);
+            }
+
+            // 使用頻度を読み込む
+            const savedUsage = await AsyncStorage.getItem('@repo_usage_map');
+            if (savedUsage) {
+                setRepoUsageMap(JSON.parse(savedUsage));
+            }
+
+            // ユーザーのリポジトリ一覧を取得
+            setLoadingRepos(true);
+            const reposRes = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    Accept: 'application/vnd.github+json',
+                },
+            });
+            const reposData = await reposRes.json();
+            if (Array.isArray(reposData)) {
+                const repoList = reposData.map((repo: any) => {
+                    const key = `${repo.owner.login}/${repo.name}`;
+                    const usage = savedUsage ? JSON.parse(savedUsage)[key] || 0 : 0;
+                    return {
+                        name: repo.name,
+                        owner: repo.owner.login,
+                        usage,
+                    };
+                });
+                setRepositories(repoList);
+                // 最初はよく使うリポジトリ5つを表示
+                const topRepos = repoList
+                    .sort((a, b) => (b.usage || 0) - (a.usage || 0))
+                    .slice(0, 5);
+                setFilteredRepos(topRepos);
+            }
+            setLoadingRepos(false);
+        } catch (error) {
+            console.error('Failed to fetch user and repositories:', error);
+            setLoadingRepos(false);
+        }
+    };
+
+    // リポジトリ名で検索・フィルタリング
+    const handleRepoNameChange = (text: string) => {
+        setRepoName(text);
+        
+        if (text.trim() === '') {
+            // 入力が空の場合はよく使う5つを表示
+            const topRepos = repositories
+                .sort((a, b) => (b.usage || 0) - (a.usage || 0))
+                .slice(0, 5);
+            setFilteredRepos(topRepos);
+        } else {
+            // 入力に基づいてフィルタリング
+            const filtered = repositories
+                .filter(repo => repo.name.toLowerCase().includes(text.toLowerCase()))
+                .sort((a, b) => (b.usage || 0) - (a.usage || 0))
+                .slice(0, 5); // 上位5つまで表示
+            setFilteredRepos(filtered);
+        }
+        setShowRepoSuggestions(true);
+    };
+
+    // リポジトリを選択
+    const selectRepository = (owner: string, name: string) => {
+        setRepoOwner(owner);
+        setRepoName(name);
+        setValue('owner', owner);
+        setValue('repo', name);
+        
+        // 使用頻度を記録
+        const key = `${owner}/${name}`;
+        const newUsageMap = {
+            ...repoUsageMap,
+            [key]: (repoUsageMap[key] || 0) + 1,
+        };
+        setRepoUsageMap(newUsageMap);
+        AsyncStorage.setItem('@repo_usage_map', JSON.stringify(newUsageMap));
+        
+        setShowRepoSuggestions(false);
     };
 
     const createGitHubIssue = async (title: string) => {
@@ -170,18 +274,36 @@ export default function App(){
         }
     }
 
-    const saveRepoInfo = async () => {
-        if (!repoOwner.trim() || !repoName.trim()) {
-            Alert.alert("入力エラー", "オーナー名とリポジトリ名を入力してください");
-            return;
+    const handleModalOpen = async () => {
+        setRepoOwner(getValues('owner') || '');
+        setRepoName(getValues('repo') || '');
+        
+        // アクセストークンがあれば、リポジトリ一覧を取得
+        if (accessToken && repositories.length === 0) {
+            setLoadingRepos(true);
+            try {
+                const reposRes = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        Accept: 'application/vnd.github+json',
+                    },
+                });
+                const reposData = await reposRes.json();
+                if (Array.isArray(reposData)) {
+                    const repoList = reposData.map((repo: any) => ({
+                        name: repo.name,
+                        owner: repo.owner.login,
+                    }));
+                    setRepositories(repoList);
+                }
+            } catch (error) {
+                console.error('Failed to fetch repositories:', error);
+            } finally {
+                setLoadingRepos(false);
+            }
         }
-        await AsyncStorage.setItem('@repo_owner', repoOwner.trim());
-        await AsyncStorage.setItem('@repo_name', repoName.trim());
-        setValue('owner', repoOwner.trim());
-        setValue('repo', repoName.trim());
-        setModalVisible(false);
-        Alert.alert("保存完了", "リポジトリ情報を保存しました");
-    }
+        setModalVisible(true);
+    };
 
     const onSave = async (data: SaveFormData) => {
         const newHistory = [data.title, ...history];
@@ -308,11 +430,7 @@ export default function App(){
                 <Text style={styles.headerTitle}>Issue作成</Text>
                 <TouchableOpacity 
                     style={styles.repoButton}
-                    onPress={() => {
-                        setRepoOwner(getValues('owner') || '');
-                        setRepoName(getValues('repo') || '');
-                        setModalVisible(true);
-                    }}
+                    onPress={handleModalOpen}
                 >
                     <Text style={styles.repoButtonText}>
                         {repoOwner && repoName ? `${repoOwner}/${repoName}` : 'リポジトリ設定'}
@@ -443,40 +561,86 @@ export default function App(){
                         </View>
 
                         <View style={styles.modalBody}>
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>オーナー名</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="例: facebook"
-                                    placeholderTextColor="#9CA3AF"
-                                    value={repoOwner}
-                                    onChangeText={setRepoOwner}
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    spellCheck={false}
-                                />
-                            </View>
+                            {!accessToken ? (
+                                <Text style={styles.noAuthText}>GitHubにサインインしてリポジトリを選択してください</Text>
+                            ) : (
+                                <>
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>ユーザー名</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="GitHub ユーザー名"
+                                            placeholderTextColor="#9CA3AF"
+                                            value={userName}
+                                            onChangeText={setUserName}
+                                            autoCapitalize="none"
+                                            autoCorrect={false}
+                                            spellCheck={false}
+                                        />
+                                    </View>
 
-                            <View style={styles.inputGroup}>
-                                <Text style={styles.label}>リポジトリ名</Text>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="例: react"
-                                    placeholderTextColor="#9CA3AF"
-                                    value={repoName}
-                                    onChangeText={setRepoName}
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    spellCheck={false}
-                                />
-                            </View>
+                                    <View style={styles.inputGroup}>
+                                        <Text style={styles.label}>リポジトリ名</Text>
+                                        <TextInput
+                                            style={styles.input}
+                                            placeholder="リポジトリ名を入力..."
+                                            placeholderTextColor="#9CA3AF"
+                                            value={repoName}
+                                            onChangeText={handleRepoNameChange}
+                                            onFocus={() => {
+                                                if (repositories.length > 0) {
+                                                    setShowRepoSuggestions(true);
+                                                }
+                                            }}
+                                            autoCapitalize="none"
+                                            autoCorrect={false}
+                                            spellCheck={false}
+                                        />
 
-                            <TouchableOpacity 
-                                style={styles.modalSaveButton}
-                                onPress={saveRepoInfo}
-                            >
-                                <Text style={styles.modalSaveButtonText}>保存</Text>
-                            </TouchableOpacity>
+                                        {showRepoSuggestions && filteredRepos.length > 0 && (
+                                            <View style={styles.suggestionsList}>
+                                                {filteredRepos.map((repo, index) => (
+                                                    <TouchableOpacity
+                                                        key={index}
+                                                        style={styles.suggestionItem}
+                                                        onPress={() => selectRepository(repo.owner, repo.name)}
+                                                    >
+                                                        <Text style={styles.suggestionItemText}>
+                                                            {repo.name}
+                                                        </Text>
+                                                        {(repo.usage || 0) > 0 && (
+                                                            <Text style={styles.suggestionUsageText}>
+                                                                ★ {repo.usage}
+                                                            </Text>
+                                                        )}
+                                                    </TouchableOpacity>
+                                                ))}
+                                            </View>
+                                        )}
+
+                                        {showRepoSuggestions && repositories.length === 0 && (
+                                            <View style={styles.suggestionsList}>
+                                                <View style={styles.suggestionItem}>
+                                                    <Text style={styles.noReposText}>リポジトリを読み込み中...</Text>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {repoName && (
+                                        <TouchableOpacity 
+                                            style={styles.modalSaveButton}
+                                            onPress={() => {
+                                                setRepoOwner(userName);
+                                                setValue('owner', userName);
+                                                setModalVisible(false);
+                                            }}
+                                        >
+                                            <Text style={styles.modalSaveButtonText}>完了</Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </>
+                            )}
                         </View>
                     </View>
                 </View>
@@ -798,6 +962,48 @@ const styles = StyleSheet.create({
     },
     modalBody: {
         padding: 20,
+        maxHeight: '80%',
+    },
+    noAuthText: {
+        fontSize: 14,
+        color: '#6B7280',
+        textAlign: 'center',
+        marginVertical: 20,
+    },
+    suggestionsList: {
+        maxHeight: 250,
+        marginTop: 8,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 8,
+        borderTopWidth: 0,
+        borderTopLeftRadius: 0,
+        borderTopRightRadius: 0,
+    },
+    suggestionItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    suggestionItemText: {
+        fontSize: 14,
+        color: '#111827',
+        flex: 1,
+    },
+    suggestionUsageText: {
+        fontSize: 12,
+        color: '#F59E0B',
+        fontWeight: '600',
+        marginLeft: 8,
+    },
+    noReposText: {
+        fontSize: 14,
+        color: '#9CA3AF',
     },
     modalSaveButton: {
         backgroundColor: '#3B82F6',
@@ -805,7 +1011,7 @@ const styles = StyleSheet.create({
         borderRadius: 12,
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 8,
+        marginTop: 20,
         shadowColor: '#3B82F6',
         shadowOffset: {
             width: 0,
