@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.taka4655.offlimitedissue",
+      "bundleIdentifier": "com.taka4655.olis",
       "config": {
         "googleMobileAdsAppId": "ca-app-pub-3940256099942544~1458002511",
         "usesNonExemptEncryption": false
@@ -20,7 +20,7 @@
       }
     },
     "android": {
-      "package": "com.taka4655.offlimitedissue",
+      "package": "com.taka4655.olis",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -56,7 +56,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "privacyPolicyUrl": "https://taku-enginner.github.io/apps/offlimitedissue/index.html",
+      "privacyPolicyUrl": "https://taku-enginner.github.io/apps/olis/index.html",
       "router": {},
       "eas": {
         "projectId": "af60afa3-cddc-400d-ac46-0de465205d00"
