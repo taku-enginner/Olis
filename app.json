@@ -28,7 +28,10 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "com.google.android.gms.permission.AD_ID"
+      ]
     },
     "web": {
       "output": "static",
@@ -59,7 +62,7 @@
       "privacyPolicyUrl": "https://taku-enginner.github.io/apps/olis/index.html",
       "router": {},
       "eas": {
-        "projectId": "af60afa3-cddc-400d-ac46-0de465205d00"
+        "projectId": "29f5ef8b-8980-49f2-836d-1315d74169c1"
       }
     },
     "owner": "taka4655",
