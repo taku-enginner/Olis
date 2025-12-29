@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { makeRedirectUri, useAuthRequest } from 'expo-auth-session';
 import * as TrackingTransparency from 'expo-tracking-transparency';
 import * as WebBrowser from 'expo-web-browser';
-import { getApp } from 'firebase/app';
+import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import React, { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -14,6 +14,16 @@ import * as z from 'zod';
 
 WebBrowser.maybeCompleteAuthSession();
 
+const firebaseConfig = {
+  apiKey: "AIzaSyBSwYwIfP0Y2HFMc1am3uQ3ZwTZuTRHgGI",
+  authDomain: "olis-5e45c.firebaseapp.com",
+  projectId: "olis-5e45c",
+  storageBucket: "olis-5e45c.firebasestorage.app",
+  messagingSenderId: "612108613836",
+  appId: "1:612108613836:web:c6d85fc4dd48e44c726a69"
+};
+
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const CLIENT_ID = __DEV__ 
   ? process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID_DEV 
   : process.env.EXPO_PUBLIC_GITHUB_CLIENT_ID_PROD;
@@ -100,7 +110,7 @@ export default function App(){
           } else {
             // --- 本番環境：Firebase Functions 経由 ---
             console.log("Production mode: Using Firebase Functions");
-            const functions = getFunctions(undefined, 'asia-northeast1');
+            const functions = getFunctions(app, 'asia-northeast1');
             const getGithubToken = httpsCallable(functions, 'getGithubToken');
             const expectedUrl = `https://asia-northeast1-${functions.app.options.projectId}.cloudfunctions.net/getGithubToken`;
             Alert.alert("Debug Info", 
